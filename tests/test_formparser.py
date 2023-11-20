@@ -448,3 +448,23 @@ class TestMultiPartParser:
         ) as request:
             assert request.files["rfc2231"].filename == "a b c d e f.txt"
             assert request.files["rfc2231"].read() == b"file contents"
+
+
+@pytest.mark.timeout(10)
+def test_cve_2023_46136():
+    file_content = b"\r" + b"x" * (2**20) * 100
+    data = (
+        b"--foo\r\n"
+        b'Content-Disposition: form-data; name="foo"; filename="foo.txt"\r\n'
+        b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+        + file_content + b"\r\n--foo--"
+    )
+
+    with Request.from_values(
+        input_stream=io.BytesIO(data),
+        content_length=len(data),
+        content_type="multipart/form-data; boundary=foo",
+        method="POST",
+    ) as request:
+        assert request.files["foo"].filename == "foo.txt"
+        assert request.files["foo"].read() == file_content
